@@ -1,26 +1,11 @@
+// Exmaple of using the MQTT library for ESP32 
+// Library by Joël Gähwiler
+// https://github.com/256dpi/arduino-mqtt
+// Modified by Arnan Sipitakiat
+
+
 #include <WiFi.h>
 #include <MQTT.h>
-#include <LCD_I2C.h>
-#include "RTClib.h"
-
-//CLOCK------------------------
-RTC_DS1307 rtc;
-double n = 0.0;
-double p = 0.0;
-
-//LCD--------------------------
-LCD_I2C lcd(0x27, 16, 2);
-
-//I2C--------------------------
-#include <Adafruit_I2CDevice.h>
-
-#define PCF8574_Address 0x20
-
-Adafruit_I2CDevice i2c_dev = Adafruit_I2CDevice(PCF8574_Address);
-uint8_t buffer[32];
-uint8_t bitConfig = 0b00000000; // P0-P7 config bits
-//I2C--------------------------
-
 
 const char ssid[] = "Please";
 const char pass[] = "Best1234";
@@ -33,6 +18,10 @@ int MQTT_PORT=1883;
 bool motor_active = false; // Tracks if the motor should move
 bool motor_direction = false; // `false` for one direction, `true` for the other
 
+#define STEPPER_PIN_1 32
+#define STEPPER_PIN_2 33
+#define STEPPER_PIN_3 26
+#define STEPPER_PIN_4 27
 int step_number = 0;
 
 //int counter=0;
@@ -87,62 +76,20 @@ void setup() {
   // by Arduino. You need to set the IP address directly.
   client.begin(mqtt_broker, MQTT_PORT, net);
   client.onMessage(messageReceived);
-  
+  pinMode(STEPPER_PIN_1, OUTPUT);
+  pinMode(STEPPER_PIN_2, OUTPUT);
+  pinMode(STEPPER_PIN_3, OUTPUT);
+  pinMode(STEPPER_PIN_4, OUTPUT);
+
+
   connect();
-  //I2C--------------------------------------------
-  Serial.println("I2C address detection test");
-  if (!i2c_dev.begin()) {
-    Serial.print("Did not find device at 0x");
-    Serial.println(i2c_dev.address(), HEX);
-    while (1);
-  }
-  Serial.print("Device found on address 0x");
-  Serial.println(i2c_dev.address(), HEX);
-
-  buffer[0] = 0b00000000;
-  i2c_dev.write(buffer,1);
-  //I2C--------------------------------------------
-  //LCD--------------------------------------------
-  lcd.begin();
-  lcd.backlight();
-  //LCD--------------------------------------------
-  //CLOCK------------------------------------------
-  #ifndef ESP8266
-  while (!Serial); // wait for serial port to connect. Needed for native USB
-  #endif
-
-  if (! rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    Serial.flush();
-    while (1) delay(10);
-  }
-
-  if (! rtc.isrunning()) {
-    Serial.println("RTC is NOT running, let's set the time!");
-
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-
-  }
-//CLOCK--------------------------------------------
 }
 
 void loop()
  {
   if (motor_active) {
-  lcd.clear();
-  n = n+1.0;
   OneStep(motor_direction); // Step in the set direction
   delay(2);                 // Adjust delay for speed
-  } else {
-    if(n != 0){
-      p = n/500.0; 
-    }
-      lcd.print("work time : ");
-      lcd.print(p);
-      lcd.print(" s");
-      delay(50);
-      lcd.clear();
-      n = 0;
   }
   client.loop();
   delay(0);  // <- fixes some issues with WiFi stability
@@ -154,48 +101,73 @@ void loop()
 
 }
 
-void OneStep(bool dir) {
-  if (dir) {
-    switch (step_number) {
+void OneStep(bool dir){
+    if(dir)
+    {
+  switch(step_number)
+      {
       case 0:
-       buffer[0] = 0b00000001;
-       i2c_dev.write(buffer,1);
-        break;
+      digitalWrite(STEPPER_PIN_1, HIGH);
+      digitalWrite(STEPPER_PIN_2, LOW);
+      digitalWrite(STEPPER_PIN_3, LOW);
+      digitalWrite(STEPPER_PIN_4, LOW);
+      break;
       case 1:
-       buffer[0] = 0b00000010;
-       i2c_dev.write(buffer,1);
-        break;
+      digitalWrite(STEPPER_PIN_1, LOW);
+      digitalWrite(STEPPER_PIN_2, HIGH);
+      digitalWrite(STEPPER_PIN_3, LOW);
+      digitalWrite(STEPPER_PIN_4, LOW);
+      break;
       case 2:
-       buffer[0] = 0b00000100;
-       i2c_dev.write(buffer,1);
-        break;
+      digitalWrite(STEPPER_PIN_1, LOW);
+      digitalWrite(STEPPER_PIN_2, LOW);
+      digitalWrite(STEPPER_PIN_3, HIGH);
+      digitalWrite(STEPPER_PIN_4, LOW);
+      break;
       case 3:
-       buffer[0] = 0b00001000;
-       i2c_dev.write(buffer,1);
-        break;
-    }
-  } else {
-    switch (step_number) {
-      case 0:
-       buffer[0] = 0b00001000;
-       i2c_dev.write(buffer,1);
-        break;
-      case 1:
-       buffer[0] = 0b00000100;
-       i2c_dev.write(buffer,1);
-        break;
-      case 2:
-       buffer[0] = 0b00000010;
-       i2c_dev.write(buffer,1);
-        break;
-      case 3:
-       buffer[0] = 0b00000001;
-       i2c_dev.write(buffer,1);
-        break;
-    }
+      digitalWrite(STEPPER_PIN_1, LOW);
+      digitalWrite(STEPPER_PIN_2, LOW);
+      digitalWrite(STEPPER_PIN_3, LOW);
+      digitalWrite(STEPPER_PIN_4, HIGH);
+      break;
+    } 
+  }
+  else
+  {
+    switch(step_number)
+    {
+  case 0:
+  digitalWrite(STEPPER_PIN_1, LOW);
+  digitalWrite(STEPPER_PIN_2, LOW);
+  digitalWrite(STEPPER_PIN_3, LOW);
+  digitalWrite(STEPPER_PIN_4, HIGH);
+  break;
+  case 1:
+  digitalWrite(STEPPER_PIN_1, LOW);
+  digitalWrite(STEPPER_PIN_2, LOW);
+  digitalWrite(STEPPER_PIN_3, HIGH);
+  digitalWrite(STEPPER_PIN_4, LOW);
+  break;
+  case 2:
+  digitalWrite(STEPPER_PIN_1, LOW);
+  digitalWrite(STEPPER_PIN_2, HIGH);
+  digitalWrite(STEPPER_PIN_3, LOW);
+  digitalWrite(STEPPER_PIN_4, LOW);
+  break;
+  case 3:
+  digitalWrite(STEPPER_PIN_1, HIGH);
+  digitalWrite(STEPPER_PIN_2, LOW);
+  digitalWrite(STEPPER_PIN_3, LOW);
+  digitalWrite(STEPPER_PIN_4, LOW);
+ 
+  
+    } 
   }
   step_number++;
-  if (step_number > 3) {
+    if(step_number > 3)
+    {
     step_number = 0;
-  }
+    }
 }
+
+  
